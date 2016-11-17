@@ -1,5 +1,9 @@
 Changelog
 =========
+### 0.11.6
+* Add bootstrap v4 markup form-control-*
+* Add comments
+
 ### 0.11.5
 * Fixed an event binding order issue when the form is reset. ([#375](https://github.com/1000hz/bootstrap-validator/pull/375))
 

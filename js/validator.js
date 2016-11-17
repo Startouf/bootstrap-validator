@@ -41,7 +41,10 @@
   var Validator = function (element, options) {
     this.options    = options
     this.validators = $.extend({}, Validator.VALIDATORS, options.custom)
+    // The element that contains inputs to validate
     this.$element   = $(element)
+    // The submit/next buttons attached to the element
+    // Either nested or that reference the element ID through a "form" html attribute
     this.$btn       = $('button[type="submit"], input[type="submit"]')
                         .filter('[form="' + this.$element.attr('id') + '"]')
                         .add(this.$element.find('input[type="submit"], button[type="submit"]'))
@@ -52,6 +55,8 @@
     this.$element.on('submit.bs.validator', $.proxy(this.onSubmit, this))
     this.$element.on('reset.bs.validator', $.proxy(this.reset, this))
 
+    // Find data-match inputs under the element and bind their matching element
+    // under data('match')
     this.$element.find('[data-match]').each(function () {
       var $this  = $(this)
       var target = $this.data('match')
@@ -67,7 +72,7 @@
     this.toggleSubmit()
   }
 
-  Validator.VERSION = '0.11.5'
+  Validator.VERSION = '0.11.6'
 
   Validator.INPUT_SELECTOR = ':input:not([type="hidden"], [type="submit"], [type="reset"], button)'
 
@@ -126,11 +131,13 @@
     })
   }
 
+  // Run validations on a given input
   Validator.prototype.validateInput = function ($el, deferErrors) {
     var value      = getValue($el)
     var prevErrors = $el.data('bs.validator.errors')
     var errors
 
+    // For radio button, need to find nested content
     if ($el.is('[type="radio"]')) $el = this.$element.find('input[name="' + $el.attr('name') + '"]')
 
     var e = $.Event('validate.bs.validator', {relatedTarget: $el[0]})
@@ -139,13 +146,16 @@
 
     var self = this
 
+    // Run validations and callback here
     return this.runValidators($el).done(function (errors) {
       $el.data('bs.validator.errors', errors)
 
+      // Defer showing errors if ???
       errors.length
         ? deferErrors ? self.defer($el, self.showErrors) : self.showErrors($el)
         : self.clearErrors($el)
 
+      // Refresh/remove errors only if they got updated
       if (!prevErrors || errors.toString() !== prevErrors.toString()) {
         e = errors.length
           ? $.Event('invalid.bs.validator', {relatedTarget: $el[0], detail: errors})
@@ -154,8 +164,10 @@
         self.$element.trigger(e)
       }
 
+      // Refresh submit buttons
       self.toggleSubmit()
 
+      // Validation complete event
       self.$element.trigger($.Event('validated.bs.validator', {relatedTarget: $el[0]}))
     })
   }
@@ -255,11 +267,13 @@
     $block.data('bs.validator.originalContent') === undefined && $block.data('bs.validator.originalContent', $block.html())
     $block.empty().append(errors)
     $group.addClass('has-error has-danger')
+    $el.addClass('form-control-danger')
 
     $group.hasClass('has-feedback')
       && $feedback.removeClass(this.options.feedback.success)
       && $feedback.addClass(this.options.feedback.error)
       && $group.removeClass('has-success')
+      && $el.removeClass('form-control-success')
   }
 
   Validator.prototype.clearErrors = function ($el) {
@@ -269,6 +283,7 @@
 
     $block.html($block.data('bs.validator.originalContent'))
     $group.removeClass('has-error has-danger has-success')
+    $el.removeClass('form-control-danger form-control-success')
 
     $group.hasClass('has-feedback')
       && $feedback.removeClass(this.options.feedback.error)
@@ -276,6 +291,7 @@
       && getValue($el)
       && $feedback.addClass(this.options.feedback.success)
       && $group.addClass('has-success')
+      && $el.addClass('form-control-success')
   }
 
   Validator.prototype.hasErrors = function () {
