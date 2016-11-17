@@ -1,6 +1,10 @@
 Changelog
 =========
-### 0.11.6
+### 0.12.0
+* Allow to pass additional parameters to methods
+	* eg $(elem).validator('validate', callback) lets you perform actions after global validations
+* Replace support of [form] html attribute to support [validatee] instead, support any type of tag
+* Support non-<form> elements as root elements for validation (allows partial validations, useful for wizards)
 * Add bootstrap v4 markup form-control-*
 * Add comments
 

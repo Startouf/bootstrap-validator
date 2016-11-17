@@ -1,9 +1,10 @@
 /* ========================================================================
- * Bootstrap (plugin): validator.js v0.11.5
+ * Bootstrap (plugin): validator.js v0.11.6
  * ========================================================================
  * The MIT License (MIT)
  *
  * Copyright (c) 2016 Cina Saffary.
+ * Changes 2016 Cyril Duchon-Doris.
  * Made by @1000hz in the style of Bootstrap 3 era @fat
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,17 +39,23 @@
                                          $el.val()
   }
 
+  /*
+   * Create a validator object and execute validations
+   * @param element - The element that contains inputs to validate
+   * @param options - custom options for the Validator
+   */
   var Validator = function (element, options) {
     this.options    = options
     this.validators = $.extend({}, Validator.VALIDATORS, options.custom)
-    // The element that contains inputs to validate
     this.$element   = $(element)
-    // The submit/next buttons attached to the element
-    // Either nested or that reference the element ID through a "form" html attribute
-    this.$btn       = $('button[type="submit"], input[type="submit"]')
-                        .filter('[form="' + this.$element.attr('id') + '"]')
-                        .add(this.$element.find('input[type="submit"], button[type="submit"]'))
 
+    // The submit/next buttons attached to the element
+    // Either nested submits
+    // or tags that reference the element ID through a "validatee" html attribute
+    //    <button type="button" validatee="external-form">
+    this.$btn       = $('button, input')
+                        .filter('[validatee="' + this.$element.attr('id') + '"]')
+                        .add(this.$element.find('input[type="submit"], button[type="submit"]'))
     this.update()
 
     this.$element.on('input.bs.validator change.bs.validator focusout.bs.validator', $.proxy(this.onInput, this))
@@ -91,6 +98,10 @@
     feedback: {
       success: 'glyphicon-ok',
       error: 'glyphicon-remove'
+    },
+    submitClass: {
+      success: 'btn-mjg',
+      error: 'btn-grey'
     }
   }
 
@@ -111,6 +122,7 @@
     }
   }
 
+  // Discover new inputs added/enabled in the DOM
   Validator.prototype.update = function () {
     this.$inputs = this.$element.find(Validator.INPUT_SELECTOR)
       .add(this.$element.find('[data-validate="true"]'))
@@ -131,7 +143,7 @@
     })
   }
 
-  // Run validations on a given input
+  // Validate a given input
   Validator.prototype.validateInput = function ($el, deferErrors) {
     var value      = getValue($el)
     var prevErrors = $el.data('bs.validator.errors')
@@ -146,7 +158,7 @@
 
     var self = this
 
-    // Run validations and callback here
+    // Run validations on a single input and callback here
     return this.runValidators($el).done(function (errors) {
       $el.data('bs.validator.errors', errors)
 
@@ -163,8 +175,6 @@
 
         self.$element.trigger(e)
       }
-
-      // Refresh submit buttons
       self.toggleSubmit()
 
       // Validation complete event
@@ -172,7 +182,7 @@
     })
   }
 
-
+  // Run all validators on an input
   Validator.prototype.runValidators = function ($el) {
     var errors   = []
     var deferred = $.Deferred()
@@ -228,12 +238,19 @@
     return deferred.promise()
   }
 
-  Validator.prototype.validate = function () {
+  // Validate nested inputs
+  // @callback
+  //    @cb-param validated - Whether all the inputs were validated or not
+  Validator.prototype.validate = function(callback) {
     var self = this
 
-    $.when(this.$inputs.map(function (el) {
+    $.when(this.$inputs.map(function(callback) {
       return self.validateInput($(this), false)
-    })).then(function () {
+    })).then(function() {
+      if(callback) {
+        var validated = !(self.isIncomplete() || self.hasErrors())
+        callback(validated)
+      }
       self.toggleSubmit()
       self.focusError()
     })
@@ -319,6 +336,8 @@
   Validator.prototype.toggleSubmit = function () {
     if (!this.options.disable) return
     this.$btn.toggleClass('disabled', this.isIncomplete() || this.hasErrors())
+    this.$btn.toggleClass(this.options.submitClass.error, this.isIncomplete() || this.hasErrors())
+    this.$btn.toggleClass(this.options.submitClass.success, !this.isIncomplete() && !this.hasErrors())
   }
 
   Validator.prototype.defer = function ($el, callback) {
@@ -380,16 +399,31 @@
   // VALIDATOR PLUGIN DEFINITION
   // ===========================
 
-
-  function Plugin(option) {
+  /*
+   * @param method - Function to call
+   * @param params - params for that function
+   */
+  function Plugin(method, params) {
     return this.each(function () {
       var $this   = $(this)
-      var options = $.extend({}, Validator.DEFAULTS, $this.data(), typeof option == 'object' && option)
+      var options = $.extend({}, Validator.DEFAULTS, $this.data(), typeof method == 'object' && method)
       var data    = $this.data('bs.validator')
 
-      if (!data && option == 'destroy') return
-      if (!data) $this.data('bs.validator', (data = new Validator(this, options)))
-      if (typeof option == 'string') data[option]()
+
+      if(!data) {
+        // If no validator exist
+
+        // Do nothing if there's a destroy
+        if(method == 'destroy') { return }
+
+        // Create a new validator and bind it in the bs.validator data()
+        data = new Validator(this, options)
+        $this.data('bs.validator', data) // Create the validator and run validations
+
+      } else if (typeof method == 'string') {
+        // The validator already exists ! Just call it and pass additional params
+        data[method](params)
+      }
     })
   }
 
@@ -412,7 +446,7 @@
   // ==================
 
   $(window).on('load', function () {
-    $('form[data-toggle="validator"]').each(function () {
+    $('[data-toggle="validator"]').each(function () {
       var $form = $(this)
       Plugin.call($form, $form.data())
     })
